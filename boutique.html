@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="fr" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Boutique — DomotiBox</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: { orange: { 500: '#F97316', 600: '#EA6A0A' } },
+          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+        }
+      }
+    }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <style>
+    * { -webkit-font-smoothing: antialiased; }
+    .product-card { border: 1.5px solid #F3F4F6; border-radius: 20px; transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease; cursor: pointer; }
+    .product-card:hover { border-color: #F97316; transform: translateY(-3px); box-shadow: 0 16px 48px rgba(0,0,0,0.07); }
+    .filter-btn { border: 1.5px solid #E5E7EB; border-radius: 12px; transition: all 0.2s ease; cursor: pointer; }
+    .filter-btn.active, .filter-btn:hover { border-color: #F97316; background: rgba(249,115,22,0.05); color: #EA580C; }
+    .badge { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 100px; }
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100; display: flex; align-items: center; justify-content: center; padding: 16px; backdrop-filter: blur(4px); }
+    .modal-box { background: white; border-radius: 24px; max-width: 520px; width: 100%; max-height: 90vh; overflow-y: auto; }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition-duration: 0.01ms !important; } }
+  </style>
+</head>
+<body class="bg-white text-[#0A0A0A] font-sans antialiased">
+
+  <!-- NAV -->
+  <nav class="fixed top-4 left-4 right-4 z-50 bg-white/90 border border-gray-100 rounded-2xl px-6 py-3 flex items-center justify-between shadow-sm" style="backdrop-filter:blur(12px)">
+    <a href="index.html" class="flex items-center gap-2 cursor-pointer">
+      <div class="w-8 h-8 bg-[#F97316] rounded-lg flex items-center justify-center">
+        <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+        </svg>
+      </div>
+      <span class="font-bold text-[15px] tracking-tight">DomotiBox</span>
+    </a>
+    <div class="hidden md:flex items-center gap-8">
+      <a href="index.html" class="text-sm text-gray-500 hover:text-[#0A0A0A] transition-colors duration-200 cursor-pointer">Accueil</a>
+      <a href="index.html#fonctionnalites" class="text-sm text-gray-500 hover:text-[#0A0A0A] transition-colors duration-200 cursor-pointer">Fonctionnalités</a>
+      <a href="boutique.html" class="text-sm font-semibold text-[#F97316] cursor-pointer">Boutique</a>
+    </div>
+    <a href="configurateur.html" class="btn-primary text-sm font-medium px-5 py-2 rounded-xl cursor-pointer" style="background:#F97316; color:white; transition:background 0.2s ease;" onmouseover="this.style.background='#EA6A0A'" onmouseout="this.style.background='#F97316'">
+      Configurer mon projet
+    </a>
+  </nav>
+
+  <div class="pt-24 pb-20 px-6">
+    <div class="max-w-6xl mx-auto">
+
+      <!-- Header -->
+      <div class="text-center pt-10 pb-12">
+        <p class="text-[#F97316] text-sm font-semibold tracking-widest uppercase mb-4">Boutique</p>
+        <h1 class="text-4xl md:text-5xl font-black tracking-tight mb-4">Équipez votre maison.</h1>
+        <p class="text-gray-500 max-w-xl mx-auto text-base leading-relaxed">Tous les appareils compatibles DomotiBox, soigneusement sélectionnés pour leur fiabilité et leur design.</p>
+      </div>
+
+      <!-- Filters -->
+      <div class="flex flex-wrap gap-3 justify-center mb-10" id="filters">
+        <button class="filter-btn active px-5 py-2 text-sm font-medium" data-filter="all">Tout voir</button>
+        <button class="filter-btn px-5 py-2 text-sm font-medium" data-filter="eclairage">Éclairage</button>
+        <button class="filter-btn px-5 py-2 text-sm font-medium" data-filter="securite">Sécurité</button>
+        <button class="filter-btn px-5 py-2 text-sm font-medium" data-filter="chauffage">Chauffage</button>
+        <button class="filter-btn px-5 py-2 text-sm font-medium" data-filter="volets">Volets</button>
+        <button class="filter-btn px-5 py-2 text-sm font-medium" data-filter="energie">Énergie</button>
+        <button class="filter-btn px-5 py-2 text-sm font-medium" data-filter="box">Box & Hub</button>
+      </div>
+
+      <!-- Product grid -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6" id="product-grid"></div>
+
+      <!-- Empty state -->
+      <div id="empty-state" class="hidden text-center py-20">
+        <p class="text-gray-400 text-sm">Aucun produit dans cette catégorie.</p>
+      </div>
+
+      <!-- CTA banner -->
+      <div class="mt-20 bg-[#0A0A0A] rounded-3xl p-10 md:p-14 flex flex-col md:flex-row items-center justify-between gap-8">
+        <div>
+          <h2 class="text-2xl md:text-3xl font-black text-white tracking-tight mb-2">Vous ne savez pas par où commencer ?</h2>
+          <p class="text-gray-400 text-sm">Notre configurateur vous guide vers la solution idéale en 5 minutes.</p>
+        </div>
+        <a href="configurateur.html" class="flex-shrink-0 bg-[#F97316] text-white px-8 py-4 rounded-2xl text-sm font-bold cursor-pointer hover:bg-[#EA6A0A] transition-colors duration-200 whitespace-nowrap">
+          Configurer mon projet
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Product Modal -->
+  <div id="modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal-box p-8" id="modal-content">
+      <!-- injected by JS -->
+    </div>
+  </div>
+
+  <script>
+    const products = [
+      {
+        id: 1, category: 'box', name: 'DomotiBox Hub', tagline: 'Le cœur de votre maison intelligente',
+        price: 299, badge: 'Bestseller', badgeColor: '#F97316',
+        desc: 'La box centrale qui unifie tous vos appareils. Compatible Zigbee, Z-Wave, Matter et Wi-Fi. Processeur quadricœur, 4 Go RAM, SSD 32 Go.',
+        specs: ['Zigbee 3.0', 'Z-Wave 800', 'Matter / Thread', 'Wi-Fi 6', 'Ethernet Gigabit', '4 ports USB'],
+        icon: `<svg class="w-12 h-12 text-[#F97316]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18"/></svg>`,
+        bg: '#FFF7ED',
+      },
+      {
+        id: 2, category: 'eclairage', name: 'Ampoule Ambiance Pro', tagline: 'Lumière adaptative 16M couleurs',
+        price: 29, badge: null,
+        desc: 'Ampoule connectée E27 avec 16 millions de couleurs, température de couleur réglable de 2200K à 6500K. Consommation 9W pour un équivalent 60W.',
+        specs: ['Culot E27', '9W / 800 lm', '16M couleurs', '2200–6500K', 'Zigbee 3.0', 'Dimmable'],
+        icon: `<svg class="w-12 h-12 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>`,
+        bg: '#FFFBEB',
+      },
+      {
+        id: 3, category: 'eclairage', name: 'Bandeau LED Flex', tagline: 'Ruban LED 5m RGBW',
+        price: 49, badge: 'Nouveau',  badgeColor: '#3B82F6',
+        desc: 'Ruban LED flexible RGBW de 5 mètres. Coupable tous les 10cm, auto-adhésif, IP20. Parfait pour les saignées, bibliothèques ou plafonds tendus.',
+        specs: ['5 mètres', 'RGBW', 'IP20', 'Coupable / 10cm', 'Zigbee 3.0', '12V DC'],
+        icon: `<svg class="w-12 h-12 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>`,
+        bg: '#FEFCE8',
+      },
+      {
+        id: 4, category: 'securite', name: 'Caméra FullHD Intérieure', tagline: 'Surveillance locale, sans abonnement',
+        price: 89, badge: null,
+        desc: 'Caméra intérieure 1080p avec vision nocturne, détection de mouvement et enregistrement local sur carte SD. Aucun cloud obligatoire.',
+        specs: ['1080p Full HD', 'Vision nocturne IR', 'Détection mouvement', 'Stockage local SD', 'Audio bidirectionnel', 'Angle 110°'],
+        icon: `<svg class="w-12 h-12 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.069A1 1 0 0121 8.82v6.36a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>`,
+        bg: '#EFF6FF',
+      },
+      {
+        id: 5, category: 'securite', name: 'Détecteur Multifonction', tagline: 'Mouvement + fumée + CO2',
+        price: 59, badge: 'Essentiel', badgeColor: '#10B981',
+        desc: 'Détecteur 3-en-1 : présence, fumée et CO2. Alerte instantanée sur l\'application et sirène intégrée 85dB. Autonomie 5 ans sur pile.',
+        specs: ['PIR + Fumée + CO2', 'Sirène 85dB', 'Pile 5 ans', 'Zigbee 3.0', 'Angle 90°', 'IP20'],
+        icon: `<svg class="w-12 h-12 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>`,
+        bg: '#F0FDF4',
+      },
+      {
+        id: 6, category: 'chauffage', name: 'Thermostat Intelligent', tagline: 'Économisez jusqu\'à 30% de chauffage',
+        price: 129, badge: null,
+        desc: 'Thermostat connecté avec apprentissage automatique. Détecte vos habitudes et optimise la chauffe. Compatible chaudière gaz, pompe à chaleur et plancher chauffant.',
+        specs: ['Apprentissage auto', 'Chaudière / PAC / PCH', 'Écran TFT couleur', 'Zigbee 3.0', 'Mode géolocalisation', 'Historique 12 mois'],
+        icon: `<svg class="w-12 h-12 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>`,
+        bg: '#FFF1F2',
+      },
+      {
+        id: 7, category: 'volets', name: 'Module Volet Roulant', tagline: 'Motorisez vos volets existants',
+        price: 69, badge: null,
+        desc: 'Micro-module à installer dans votre boîte de commande. Compatible avec tous les moteurs volets du marché. Ne nécessite pas de remplacement du moteur.',
+        specs: ['Universel', 'Installation simple', 'Zigbee 3.0', 'Puissance max 500W', 'Détection fin de course', 'Positionnement %'],
+        icon: `<svg class="w-12 h-12 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>`,
+        bg: '#F9FAFB',
+      },
+      {
+        id: 8, category: 'energie', name: 'Capteur de Consommation', tagline: 'Suivi en temps réel de votre conso',
+        price: 79, badge: null,
+        desc: 'Pince ampèremétrique à installer sur le tableau électrique. Mesure la consommation en temps réel par circuit. Visualisation et alertes dans l\'app.',
+        specs: ['Mesure par circuit', 'Temps réel', 'Historique illimité', 'Alertes seuil', 'Précision ±1%', 'Zigbee 3.0'],
+        icon: `<svg class="w-12 h-12 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>`,
+        bg: '#F5F3FF',
+      },
+      {
+        id: 9, category: 'securite', name: 'Serrure Connectée', tagline: 'Ouvrez votre porte depuis n\'importe où',
+        price: 199, badge: 'Premium', badgeColor: '#8B5CF6',
+        desc: 'Serrure intelligente à retrofitter sur votre porte existante. Ouverture par app, code, empreinte ou badge NFC. Aucun clé requise.',
+        specs: ['Empreinte digitale', 'Code PIN', 'NFC / Badge', 'App smartphone', 'Auto-lock', 'Historique accès'],
+        icon: `<svg class="w-12 h-12 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>`,
+        bg: '#FAF5FF',
+      },
+    ];
+
+    let activeFilter = 'all';
+
+    function renderProducts(filter) {
+      const grid = document.getElementById('product-grid');
+      const empty = document.getElementById('empty-state');
+      const filtered = filter === 'all' ? products : products.filter(p => p.category === filter);
+      grid.innerHTML = '';
+
+      if (filtered.length === 0) {
+        empty.classList.remove('hidden');
+        return;
+      }
+      empty.classList.add('hidden');
+
+      filtered.forEach(p => {
+        const card = document.createElement('div');
+        card.className = 'product-card p-6 flex flex-col bg-white';
+        card.setAttribute('tabindex', '0');
+        card.setAttribute('role', 'button');
+        card.setAttribute('aria-label', `Voir ${p.name}`);
+        card.innerHTML = `
+          <div class="rounded-2xl mb-5 flex items-center justify-center h-28" style="background:${p.bg}">
+            ${p.icon}
+          </div>
+          <div class="flex items-start justify-between gap-2 mb-2">
+            <h3 class="font-bold text-base leading-tight">${p.name}</h3>
+            ${p.badge ? `<span class="badge flex-shrink-0" style="background:${p.badgeColor}20; color:${p.badgeColor}">${p.badge}</span>` : ''}
+          </div>
+          <p class="text-gray-400 text-xs mb-4 leading-relaxed flex-1">${p.tagline}</p>
+          <div class="flex items-center justify-between mt-auto pt-4 border-t border-gray-50">
+            <span class="font-black text-xl">${p.price} €</span>
+            <button class="bg-[#F97316] text-white text-xs font-semibold px-4 py-2 rounded-xl hover:bg-[#EA6A0A] transition-colors duration-200 cursor-pointer" onclick="event.stopPropagation(); openModal(${p.id})">
+              Détails
+            </button>
+          </div>
+        `;
+        card.addEventListener('click', () => openModal(p.id));
+        card.addEventListener('keydown', e => { if (e.key === 'Enter') openModal(p.id); });
+        grid.appendChild(card);
+      });
+    }
+
+    function openModal(id) {
+      const p = products.find(x => x.id === id);
+      if (!p) return;
+      const modal = document.getElementById('modal');
+      document.getElementById('modal-content').innerHTML = `
+        <div class="flex items-start justify-between gap-4 mb-6">
+          <h2 id="modal-title" class="text-2xl font-black tracking-tight">${p.name}</h2>
+          <button onclick="closeModal()" class="flex-shrink-0 w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors cursor-pointer" aria-label="Fermer">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <div class="rounded-2xl flex items-center justify-center h-44 mb-6" style="background:${p.bg}">
+          ${p.icon}
+        </div>
+        <p class="text-gray-500 text-sm leading-relaxed mb-6">${p.desc}</p>
+        <div class="mb-6">
+          <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Caractéristiques</h3>
+          <div class="grid grid-cols-2 gap-2">
+            ${p.specs.map(s => `<div class="flex items-center gap-2 text-xs text-gray-600"><svg class="w-3.5 h-3.5 text-[#F97316] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>${s}</div>`).join('')}
+          </div>
+        </div>
+        <div class="flex items-center justify-between pt-5 border-t border-gray-100">
+          <div>
+            <span class="font-black text-3xl">${p.price} €</span>
+            <p class="text-gray-400 text-xs mt-0.5">Installation incluse si achat via configurateur</p>
+          </div>
+          <a href="configurateur.html" class="bg-[#F97316] text-white px-6 py-3 rounded-xl text-sm font-bold hover:bg-[#EA6A0A] transition-colors duration-200 cursor-pointer">
+            Ajouter au projet
+          </a>
+        </div>
+      `;
+      modal.classList.remove('hidden');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeModal() {
+      document.getElementById('modal').classList.add('hidden');
+      document.body.style.overflow = '';
+    }
+
+    // Close on backdrop click
+    document.getElementById('modal').addEventListener('click', e => {
+      if (e.target === document.getElementById('modal')) closeModal();
+    });
+
+    // Close on Escape
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') closeModal();
+    });
+
+    // Filters
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        activeFilter = btn.dataset.filter;
+        renderProducts(activeFilter);
+      });
+    });
+
+    renderProducts('all');
+  </script>
+</body>
+</html>
