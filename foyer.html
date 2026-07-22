@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Foyer — Le nouveau foyer de la maison</title>
+<meta name="description" content="Foyer est une box domotique 100 % locale, posée, installée et réglée pour vous. Raspberry Pi, Home Assistant, sans abonnement.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;font-family:'Manrope',system-ui,-apple-system,sans-serif;color:#1D1D1F;background:#0E0A07;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+  a{color:#FF6A1A;text-decoration:none}
+  a:hover{color:#FF3D57}
+  input,button,textarea{font-family:inherit}
+  ::selection{background:#FFB23E;color:#1D1D1F}
+  @keyframes fUp{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:none}}
+  @keyframes fIn{from{opacity:0}to{opacity:1}}
+  @keyframes floaty{0%,100%{transform:translateY(0)}50%{transform:translateY(-18px)}}
+  @keyframes glowP{0%,100%{opacity:.55}50%{opacity:1}}
+  @keyframes marq{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+  @keyframes loaderOut{0%,72%{opacity:1;visibility:visible}100%{opacity:0;visibility:hidden}}
+  @keyframes bounce{0%,100%{transform:translateY(0);opacity:.9}50%{transform:translateY(9px);opacity:.4}}
+  @media (max-width:920px){.fy-hero-grid{grid-template-columns:1fr!important;text-align:center}.fy-nav-links{display:none!important}.fy-2col{grid-template-columns:1fr!important}.fy-price{grid-template-columns:1fr!important}.fy-vs{grid-template-columns:1fr!important}.fy-hero-stats{justify-content:center}}
+
+  .fy-chip{display:inline-flex;align-items:center;gap:8px;padding:11px 16px;border-radius:14px;font-size:14.5px;font-weight:600;cursor:pointer;transition:all .18s;background:#fff;color:#3a3733;border:1px solid #E3DED6}
+  .fy-chip.is-selected{background:var(--accent);color:#fff;border-color:var(--accent);box-shadow:0 6px 16px rgba(255,106,26,.28)}
+  .fy-opt{display:block;text-align:left;padding:14px 18px;border-radius:14px;font-size:15px;font-weight:600;cursor:pointer;transition:all .18s;width:100%;background:#fff;color:#1D1D1F;border:2px solid #EAE4DB}
+  .fy-opt.is-selected{background:#FFF4EC;border-color:var(--accent)}
+  .fy-opt-desc{display:block;font-size:13.5px;color:#6E6A64;font-weight:500;margin-top:3px}
+  .fy-btn-back{padding:12px 18px;border-radius:12px;border:none;background:none;color:#6E6A64;font-weight:600;font-size:15px;cursor:pointer}
+  .fy-btn-back:disabled{visibility:hidden}
+  .fy-btn-next{padding:14px 26px;border-radius:14px;border:none;background:#1D1D1F;color:#fff;font-weight:700;font-size:15px;cursor:pointer}
+  .fy-btn-next:disabled{background:#D8D2C9;cursor:not-allowed}
+  .fy-input{padding:14px 16px;border-radius:12px;border:1.5px solid #E3DED6;font-size:15px;color:#1D1D1F;background:#FCFAF7;outline:none}
+  .fy-step{animation:fIn .4s both}
+  .fy-faq-body{max-height:0;overflow:hidden;transition:max-height .4s cubic-bezier(.16,1,.3,1)}
+  .fy-faq-item.is-open .fy-faq-body{max-height:400px}
+  .fy-faq-item.is-open .fy-faq-plus{transform:rotate(45deg)}
+</style>
+</head>
+<body>
+<div style="--accent:#FF6A1A; position:relative; overflow-x:clip; background:#FBF9F6">
+
+  <!-- ===================== LOADER ===================== -->
+  <div id="fy-loader" style="position:fixed;inset:0;z-index:200;background:#0E0A07;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:26px;animation:loaderOut 2.2s cubic-bezier(.7,0,.3,1) forwards;pointer-events:none">
+    <div style="position:relative;width:74px;height:74px">
+      <div style="position:absolute;inset:0;border-radius:22px;background:linear-gradient(135deg,#FFC24B,#FF7A2F 45%,#FF3D57);animation:glowP 1.6s ease-in-out infinite;box-shadow:0 0 60px rgba(255,106,26,.7)"></div>
+    </div>
+    <div style="font-weight:800;letter-spacing:.42em;font-size:15px;color:#F5EFE7;padding-left:.42em">FOYER</div>
+    <div id="fy-loader-pct" style="font-size:13px;font-weight:600;color:#7A6E60;font-variant-numeric:tabular-nums">0%</div>
+  </div>
+
+  <!-- scroll progress -->
+  <div id="fy-prog" style="position:fixed;top:0;left:0;height:3px;width:0%;z-index:120;background:linear-gradient(90deg,#FF7A2F,#FF3D57)"></div>
+
+  <!-- grain overlay -->
+  <div style="position:fixed;inset:0;z-index:110;pointer-events:none;opacity:.045;mix-blend-mode:multiply;background-image:url('data:image/svg+xml;utf8,&lt;svg xmlns=&quot;http://www.w3.org/2000/svg&quot; width=&quot;140&quot; height=&quot;140&quot;&gt;&lt;filter id=&quot;n&quot;&gt;&lt;feTurbulence type=&quot;fractalNoise&quot; baseFrequency=&quot;0.8&quot; numOctaves=&quot;2&quot;/&gt;&lt;/filter&gt;&lt;rect width=&quot;100%&quot; height=&quot;100%&quot; filter=&quot;url(%23n)&quot;/&gt;&lt;/svg&gt;')"></div>
+
+  <!-- ===================== NAV ===================== -->
+  <nav id="fy-nav" style="position:fixed;top:0;left:0;right:0;z-index:100;display:flex;align-items:center;justify-content:space-between;gap:24px;padding:16px clamp(20px,5vw,64px);transition:background .3s,border-color .3s,padding .3s;border-bottom:1px solid transparent">
+    <a href="#top" id="fy-nav-brand" style="display:flex;align-items:center;gap:11px;color:#fff;font-weight:800;letter-spacing:-.02em;font-size:19px;mix-blend-mode:difference">
+      <span style="width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,#FFC24B,#FF7A2F 45%,#FF3D57);display:inline-block"></span>
+      Foyer
+    </a>
+    <div class="fy-nav-links" id="fy-nav-links" style="display:flex;align-items:center;gap:30px;font-size:15px;font-weight:500;color:#fff;mix-blend-mode:difference">
+      <a href="#pourquoi" style="color:inherit">Pourquoi Foyer</a>
+      <a href="#capacites" style="color:inherit">Capacités</a>
+      <a href="#materiel" style="color:inherit">Le matériel</a>
+      <a href="#tarifs" style="color:inherit">Tarifs</a>
+      <a href="#faq" style="color:inherit">FAQ</a>
+    </div>
+    <a href="#devis" id="fy-nav-cta" style="padding:10px 20px;border-radius:980px;background:#fff;color:#1D1D1F;font-weight:700;font-size:14px;white-space:nowrap;transition:background .3s,color .3s">Devis gratuit</a>
+  </nav>
+
+  <!-- ===================== HERO ===================== -->
+  <header id="top" style="position:relative;min-height:100vh;display:flex;align-items:center;background:radial-gradient(120% 90% at 78% 30%,#2A1B0E,#14100C 55%,#0E0A07);color:#F5EFE7;overflow:hidden">
+    <div id="fy-hero-glow" style="position:absolute;top:8%;right:2%;width:70vw;max-width:900px;height:80vh;background:radial-gradient(circle at 50% 45%,rgba(255,138,46,.55),rgba(255,61,87,.3) 45%,transparent 70%);filter:blur(20px);z-index:0;will-change:transform"></div>
+    <div class="fy-hero-grid" style="position:relative;z-index:2;max-width:1240px;margin:0 auto;padding:120px clamp(20px,5vw,64px) 90px;display:grid;grid-template-columns:1.05fr .95fr;gap:clamp(30px,5vw,60px);align-items:center;width:100%">
+      <div>
+        <div style="display:inline-flex;align-items:center;gap:8px;padding:8px 15px;border-radius:980px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);backdrop-filter:blur(8px);font-size:13px;font-weight:600;color:#E7DECF;margin-bottom:28px;animation:fIn 1s .4s both">
+          <span style="width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px rgba(255,106,26,.25)"></span>
+          Raspberry Pi · Home Assistant · 100 % local
+        </div>
+        <h1 style="font-size:clamp(52px,7.4vw,104px);line-height:.94;letter-spacing:-.04em;font-weight:800;margin:0 0 26px;animation:fUp 1.1s cubic-bezier(.16,1,.3,1) .45s both">
+          Le nouveau<br>foyer de<br>la maison.
+        </h1>
+        <p style="font-size:clamp(18px,2vw,22px);line-height:1.5;color:#C4BAAD;max-width:34ch;margin:0 0 36px;animation:fUp 1.1s cubic-bezier(.16,1,.3,1) .55s both">
+          Une box domotique posée, installée et réglée pour vous. Elle pilote toute la maison — et tout reste chez vous.
+        </p>
+        <div style="display:flex;flex-wrap:wrap;gap:14px;animation:fUp 1.1s cubic-bezier(.16,1,.3,1) .65s both">
+          <a href="#devis" style="padding:16px 30px;border-radius:980px;background:var(--accent);color:#fff;font-weight:700;font-size:16px;box-shadow:0 16px 40px rgba(255,106,26,.4)">Dimensionner mon projet</a>
+          <a href="#pourquoi" style="padding:16px 30px;border-radius:980px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.18);color:#F5EFE7;font-weight:600;font-size:16px">Voir pourquoi ›</a>
+        </div>
+        <div class="fy-hero-stats" style="display:flex;gap:30px;margin-top:46px;flex-wrap:wrap;animation:fIn 1.2s .8s both">
+          <div><div style="font-size:28px;font-weight:800;letter-spacing:-.02em">0</div><div style="font-size:13px;color:#9A8F80;font-weight:500">donnée dans le cloud</div></div>
+          <div style="width:1px;background:rgba(255,255,255,.14)"></div>
+          <div><div style="font-size:28px;font-weight:800;letter-spacing:-.02em">2 000+</div><div style="font-size:13px;color:#9A8F80;font-weight:500">appareils compatibles</div></div>
+          <div style="width:1px;background:rgba(255,255,255,.14)"></div>
+          <div><div style="font-size:28px;font-weight:800;letter-spacing:-.02em">&lt; 1 j</div><div style="font-size:13px;color:#9A8F80;font-weight:500">installé chez vous</div></div>
+        </div>
+      </div>
+
+      <div style="position:relative">
+        <div style="position:relative;z-index:1;border-radius:30px;overflow:hidden;box-shadow:0 60px 120px -40px rgba(0,0,0,.7);border:1px solid rgba(255,255,255,.14);animation:floaty 8s ease-in-out infinite">
+          <img src="assets/foyer/foyer-knobs.png" alt="Gros plan sur les molettes analogiques de la box Foyer et son socle de recharge sans fil" style="display:block;width:100%;height:auto">
+        </div>
+      </div>
+    </div>
+    <div style="position:absolute;bottom:26px;left:50%;transform:translateX(-50%);z-index:3;display:flex;flex-direction:column;align-items:center;gap:8px;color:#9A8F80;font-size:12px;letter-spacing:.16em;font-weight:600;text-transform:uppercase">
+      Scroller pour découvrir
+      <span style="font-size:18px;animation:bounce 1.6s ease-in-out infinite">↓</span>
+    </div>
+  </header>
+
+  <!-- ===================== COMPAT MARQUEE ===================== -->
+  <section style="padding:26px 0;background:#0E0A07;color:#7A6E60;overflow:hidden;border-bottom:1px solid rgba(255,255,255,.06)">
+    <div style="display:flex;width:max-content;animation:marq 36s linear infinite;gap:60px;font-size:18px;font-weight:700;white-space:nowrap">
+      <span>Matter</span><span>Zigbee</span><span>Z-Wave</span><span>Thread</span><span>Home Assistant</span><span>Philips Hue</span><span>Apple Home</span><span>Google Home</span><span>Alexa</span><span>Sonos</span><span>Somfy</span><span>Netatmo</span><span>Aqara</span><span>IKEA</span><span>Shelly</span><span>Tuya</span>
+      <span>Matter</span><span>Zigbee</span><span>Z-Wave</span><span>Thread</span><span>Home Assistant</span><span>Philips Hue</span><span>Apple Home</span><span>Google Home</span><span>Alexa</span><span>Sonos</span><span>Somfy</span><span>Netatmo</span><span>Aqara</span><span>IKEA</span><span>Shelly</span><span>Tuya</span>
+    </div>
+  </section>
+
+  <!-- ===================== MANIFESTO ===================== -->
+  <section style="background:#FBF9F6;padding:clamp(90px,15vw,220px) clamp(20px,5vw,64px)">
+    <div style="max-width:1100px;margin:0 auto">
+      <div style="font-size:13px;letter-spacing:.2em;font-weight:700;color:var(--accent);text-transform:uppercase;margin-bottom:40px;animation:fUp .9s cubic-bezier(.16,1,.3,1) both;animation-timeline:view();animation-range:entry 0 cover 20%">Notre conviction</div>
+      <h2 style="font-size:clamp(34px,6.4vw,92px);line-height:1.02;letter-spacing:-.035em;font-weight:800;margin:0;color:#1D1D1F">
+        <span style="display:block;animation:fUp .9s cubic-bezier(.16,1,.3,1) both;animation-timeline:view();animation-range:entry 0 cover 26%">Votre maison n'a pas</span>
+        <span style="display:block;animation:fUp .9s cubic-bezier(.16,1,.3,1) both;animation-timeline:view();animation-range:entry 4% cover 30%">besoin du cloud pour</span>
+        <span style="display:block;color:#C4BCB0;animation:fUp .9s cubic-bezier(.16,1,.3,1) both;animation-timeline:view();animation-range:entry 8% cover 34%">être intelligente.</span>
+      </h2>
+    </div>
+  </section>
+
+  <!-- ===================== POURQUOI / VS ===================== -->
+  <section id="pourquoi" style="background:#0E0A07">
+    <div style="min-height:82vh;display:flex;align-items:center;padding:clamp(60px,10vw,120px) clamp(20px,5vw,64px);background:linear-gradient(135deg,#FF7A2F,#FF3D57);color:#fff;position:relative;overflow:hidden">
+      <div style="position:absolute;font-size:clamp(120px,26vw,420px);font-weight:800;opacity:.06;right:-2%;top:50%;transform:translateY(-50%);line-height:1;letter-spacing:-.05em;pointer-events:none">01</div>
+      <div class="fy-vs" style="position:relative;z-index:1;max-width:1240px;margin:0 auto;width:100%;display:grid;grid-template-columns:.7fr 1.3fr;gap:clamp(24px,5vw,72px);align-items:center">
+        <div style="animation:fUp .9s cubic-bezier(.16,1,.3,1) both;animation-timeline:view();animation-range:entry 0 cover 30%">
+          <div style="font-size:13px;letter-spacing:.18em;font-weight:700;text-transform:uppercase;opacity:.7;margin-bottom:14px">Vie privée</div>
+          <div style="display:inline-block;font-size:clamp(19px,2.4vw,26px);font-weight:600;text-decoration:line-through;text-decoration-thickness:2px;opacity:.55">Vos données dans le cloud</div>
+        </div>
+        <div style="animation:fUp .9s cubic-bezier(.16,1,.3,1) .08s both;animation-timeline:view();animation-range:entry 0 cover 34%">
+          <h3 style="font-size:clamp(40px,7vw,104px);line-height:.98;letter-spacing:-.035em;font-weight:800;margin:0 0 20px">100 % local</h3>
+          <p style="font-size:clamp(16px,1.8vw,20px);line-height:1.5;max-width:44ch;margin:0;opacity:.85">Tout reste chez vous, sur votre réseau. Foyer continue de fonctionner même sans Internet.</p>
+        </div>
+      </div>
+    </div>
+    <div style="min-height:82vh;display:flex;align-items:center;padding:clamp(60px,10vw,120px) clamp(20px,5vw,64px);background:#14100C;color:#F5EFE7;position:relative;overflow:hidden">
+      <div style="position:absolute;font-size:clamp(120px,26vw,420px);font-weight:800;opacity:.06;right:-2%;top:50%;transform:translateY(-50%);line-height:1;letter-spacing:-.05em;pointer-events:none">02</div>
+      <div class="fy-vs" style="position:relative;z-index:1;max-width:1240px;margin:0 auto;width:100%;display:grid;grid-template-columns:.7fr 1.3fr;gap:clamp(24px,5vw,72px);align-items:center">
+        <div style="animation:fUp .9s cubic-bezier(.16,1,.3,1) both;animation-timeline:view();animation-range:entry 0 cover 30%">
+          <div style="font-size:13px;letter-spacing:.18em;font-weight:700;text-transform:uppercase;opacity:.7;margin-bottom:14px">Aucun péage</div>
+          <div style="display:inline-block;font-size:clamp(19px,2.4vw,26px);font-weight:600;text-decoration:line-through;text-decoration-thickness:2px;opacity:.55">Un abonnement pour tout</div>
+        </div>
+        <div style="animation:fUp .9s cubic-bezier(.16,1,.3,1) .08s both;animation-timeline:view();animation-range:entry 0 cover 34%">
+          <h3 style="font-size:clamp(40px,7vw,104px);line-height:.98;letter-spacing:-.035em;font-weight:800;margin:0 0 20px">Sans abonnement</h3>
+          <p style="font-size:clamp(16px,1.8vw,20px);line-height:1.5;max-width:44ch;margin:0;opacity:.85">Vous êtes propriétaire de votre box et de vos données. La maintenance reste optionnelle.</p>
+        </div>
+      </div>
+    </div>
+    <div style="min-height:82vh;display:flex;align-items:center;padding:clamp(60px,10vw,120px) clamp(20px,5vw,64px);background:linear-gradient(135deg,#FFB23E,#FF6A1A);color:#231403;position:relative;overflow:hidden">
+      <div style="position:absolute;font-size:clamp(120px,26vw,420px);font-weight:800;opacity:.06;right:-2%;top:50%;transform:translateY(-50%);line-height:1;letter-spacing:-.05em;pointer-events:none">03</div>
+      <div class="fy-vs" style="position:relative;z-index:1;max-width:1240px;margin:0 auto;width:100%;display:grid;grid-template-columns:.7fr 1.3fr;gap:clamp(24px,5vw,72px);align-items:center">
+        <div style="animation:fUp .9s cubic-bezier(.16,1,.3,1) both;animation-timeline:view();animation-range:entry 0 cover 30%">
+          <div style="font-size:13px;letter-spacing:.18em;font-weight:700;text-transform:uppercase;opacity:.7;margin-bottom:14px">Un bel objet</div>
+          <div style="display:inline-block;font-size:clamp(19px,2.4vw,26px);font-weight:600;text-decoration:line-through;text-decoration-thickness:2px;opacity:.55">Une boîte cachée au sous-sol</div>
+        </div>
+        <div style="animation:fUp .9s cubic-bezier(.16,1,.3,1) .08s both;animation-timeline:view();animation-range:entry 0 cover 34%">
+          <h3 style="font-size:clamp(40px,7vw,104px);line-height:.98;letter-spacing:-.035em;font-weight:800;margin:0 0 20px">Un objet qu'on expose</h3>
+          <p style="font-size:clamp(16px,1.8vw,20px);line-height:1.5;max-width:44ch;margin:0;opacity:.85">Pensée pour être posée et regardée. L'écran d'ambiance donne l'heure, la météo et la lumière du moment.</p>
+        </div>
+      </div>
+    </div>
+    <div style="min-height:82vh;display:flex;align-items:center;padding:clamp(60px,10vw,120px) clamp(20px,5vw,64px);background:#14100C;color:#F5EFE7;position:relative;overflow:hidden">
+      <div style="position:absolute;font-size:clamp(120px,26vw,420px);font-weight:800;opacity:.06;right:-2%;top:50%;transform:translateY(-50%);line-height:1;letter-spacing:-.05em;pointer-events:none">04</div>
+      <div class="fy-vs" style="position:relative;z-index:1;max-width:1240px;margin:0 auto;width:100%;display:grid;grid-template-columns:.7fr 1.3fr;gap:clamp(24px,5vw,72px);align-items:center">
+        <div style="animation:fUp .9s cubic-bezier(.16,1,.3,1) both;animation-timeline:view();animation-range:entry 0 cover 30%">
+          <div style="font-size:13px;letter-spacing:.18em;font-weight:700;text-transform:uppercase;opacity:.7;margin-bottom:14px">Ouverte</div>
+          <div style="display:inline-block;font-size:clamp(19px,2.4vw,26px);font-weight:600;text-decoration:line-through;text-decoration-thickness:2px;opacity:.55">Un écosystème fermé</div>
+        </div>
+        <div style="animation:fUp .9s cubic-bezier(.16,1,.3,1) .08s both;animation-timeline:view();animation-range:entry 0 cover 34%">
+          <h3 style="font-size:clamp(40px,7vw,104px);line-height:.98;letter-spacing:-.035em;font-weight:800;margin:0 0 20px">Compatible avec tout</h3>
+          <p style="font-size:clamp(16px,1.8vw,20px);line-height:1.5;max-width:44ch;margin:0;opacity:.85">Matter, Zigbee, Z-Wave, Thread. Vos appareils actuels sont reconnus, sans tout racheter.</p>
+        </div>
+      </div>
+    </div>
+    <div style="min-height:82vh;display:flex;align-items:center;padding:clamp(60px,10vw,120px) clamp(20px,5vw,64px);background:linear-gradient(135deg,#FF6A1A,#FF3D57);color:#fff;position:relative;overflow:hidden">
+      <div style="position:absolute;font-size:clamp(120px,26vw,420px);font-weight:800;opacity:.06;right:-2%;top:50%;transform:translateY(-50%);line-height:1;letter-spacing:-.05em;pointer-events:none">05</div>
+      <div class="fy-vs" style="position:relative;z-index:1;max-width:1240px;margin:0 auto;width:100%;display:grid;grid-template-columns:.7fr 1.3fr;gap:clamp(24px,5vw,72px);align-items:center">
+        <div style="animation:fUp .9s cubic-bezier(.16,1,.3,1) both;animation-timeline:view();animation-range:entry 0 cover 30%">
+          <div style="font-size:13px;letter-spacing:.18em;font-weight:700;text-transform:uppercase;opacity:.7;margin-bottom:14px">Clé en main</div>
+          <div style="display:inline-block;font-size:clamp(19px,2.4vw,26px);font-weight:600;text-decoration:line-through;text-decoration-thickness:2px;opacity:.55">Besoin d'être bricoleur</div>
+        </div>
+        <div style="animation:fUp .9s cubic-bezier(.16,1,.3,1) .08s both;animation-timeline:view();animation-range:entry 0 cover 34%">
+          <h3 style="font-size:clamp(40px,7vw,104px);line-height:.98;letter-spacing:-.035em;font-weight:800;margin:0 0 20px">Installée pour vous</h3>
+          <p style="font-size:clamp(16px,1.8vw,20px);line-height:1.5;max-width:44ch;margin:0;opacity:.85">On vient chez vous, on configure tout, et on vous forme. En moins d'une journée, la maison est prête.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== CAPACITÉS (pinned horizontal) ===================== -->
+  <section id="capacites" style="position:relative;min-height:100vh;background:#14100C">
+    <div style="position:sticky;top:0;height:100vh;overflow:hidden;display:flex;flex-direction:column;justify-content:center;color:#F5EFE7">
+      <div style="padding:0 clamp(20px,5vw,64px);max-width:1240px;margin:0 auto 40px;width:100%">
+        <div style="font-size:13px;letter-spacing:.2em;font-weight:700;color:var(--accent);text-transform:uppercase;margin-bottom:14px">Un écosystème, pas un gadget</div>
+        <h2 style="font-size:clamp(30px,4.6vw,58px);line-height:1.02;letter-spacing:-.03em;font-weight:800;margin:0;max-width:20ch">Toute la maison, réunie sur un seul objet.</h2>
+      </div>
+      <div id="fy-track" style="display:flex;gap:26px;padding:0 clamp(20px,5vw,64px);will-change:transform;overflow-x:auto;scrollbar-width:none">
+        <div style="flex:none;width:min(78vw,380px);background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));border:1px solid rgba(255,255,255,.1);border-radius:26px;padding:34px 30px;display:flex;flex-direction:column">
+          <div style="width:56px;height:56px;border-radius:16px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,rgba(255,178,62,.25),rgba(255,61,87,.2));margin-bottom:24px;font-size:28px">💡</div>
+          <div style="font-size:12px;font-weight:700;letter-spacing:.1em;color:var(--accent);margin-bottom:10px">AMBIANCES</div>
+          <h3 style="font-size:24px;font-weight:800;letter-spacing:-.02em;margin:0 0 12px">Éclairage</h3>
+          <p style="font-size:15px;line-height:1.55;color:#B8AFA3;margin:0">Scènes, minuteries, lever de soleil simulé. Vos lumières suivent votre journée.</p>
+        </div>
+        <div style="flex:none;width:min(78vw,380px);background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));border:1px solid rgba(255,255,255,.1);border-radius:26px;padding:34px 30px;display:flex;flex-direction:column">
+          <div style="width:56px;height:56px;border-radius:16px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,rgba(255,178,62,.25),rgba(255,61,87,.2));margin-bottom:24px;font-size:28px">🌡️</div>
+          <div style="font-size:12px;font-weight:700;letter-spacing:.1em;color:var(--accent);margin-bottom:10px">CONFORT</div>
+          <h3 style="font-size:24px;font-weight:800;letter-spacing:-.02em;margin:0 0 12px">Chauffage intelligent</h3>
+          <p style="font-size:15px;line-height:1.55;color:#B8AFA3;margin:0">Pièce par pièce, selon vos horaires et votre présence. Des économies, sans y penser.</p>
+        </div>
+        <div style="flex:none;width:min(78vw,380px);background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));border:1px solid rgba(255,255,255,.1);border-radius:26px;padding:34px 30px;display:flex;flex-direction:column">
+          <div style="width:56px;height:56px;border-radius:16px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,rgba(255,178,62,.25),rgba(255,61,87,.2));margin-bottom:24px;font-size:28px">🛡️</div>
+          <div style="font-size:12px;font-weight:700;letter-spacing:.1em;color:var(--accent);margin-bottom:10px">SÉCURITÉ</div>
+          <h3 style="font-size:24px;font-weight:800;letter-spacing:-.02em;margin:0 0 12px">Sécurité locale</h3>
+          <p style="font-size:15px;line-height:1.55;color:#B8AFA3;margin:0">Caméras, détecteurs et alarme réunis — les images restent chez vous, jamais dans le cloud.</p>
+        </div>
+        <div style="flex:none;width:min(78vw,380px);background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));border:1px solid rgba(255,255,255,.1);border-radius:26px;padding:34px 30px;display:flex;flex-direction:column">
+          <div style="width:56px;height:56px;border-radius:16px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,rgba(255,178,62,.25),rgba(255,61,87,.2));margin-bottom:24px;font-size:28px">🪟</div>
+          <div style="font-size:12px;font-weight:700;letter-spacing:.1em;color:var(--accent);margin-bottom:10px">AUTOMATIQUE</div>
+          <h3 style="font-size:24px;font-weight:800;letter-spacing:-.02em;margin:0 0 12px">Volets &amp; stores</h3>
+          <p style="font-size:15px;line-height:1.55;color:#B8AFA3;margin:0">Ouverture au réveil, fermeture au coucher, protection contre la chaleur en été.</p>
+        </div>
+        <div style="flex:none;width:min(78vw,380px);background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));border:1px solid rgba(255,255,255,.1);border-radius:26px;padding:34px 30px;display:flex;flex-direction:column">
+          <div style="width:56px;height:56px;border-radius:16px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,rgba(255,178,62,.25),rgba(255,61,87,.2));margin-bottom:24px;font-size:28px">🔊</div>
+          <div style="font-size:12px;font-weight:700;letter-spacing:.1em;color:var(--accent);margin-bottom:10px">SON</div>
+          <h3 style="font-size:24px;font-weight:800;letter-spacing:-.02em;margin:0 0 12px">Multimédia &amp; audio</h3>
+          <p style="font-size:15px;line-height:1.55;color:#B8AFA3;margin:0">Pilotez votre musique et vos enceintes, en multiroom, au même endroit que le reste.</p>
+        </div>
+        <div style="flex:none;width:min(78vw,380px);background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));border:1px solid rgba(255,255,255,.1);border-radius:26px;padding:34px 30px;display:flex;flex-direction:column">
+          <div style="width:56px;height:56px;border-radius:16px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,rgba(255,178,62,.25),rgba(255,61,87,.2));margin-bottom:24px;font-size:28px">⚡</div>
+          <div style="font-size:12px;font-weight:700;letter-spacing:.1em;color:var(--accent);margin-bottom:10px">SCÉNARIOS</div>
+          <h3 style="font-size:24px;font-weight:800;letter-spacing:-.02em;margin:0 0 12px">Automatisations</h3>
+          <p style="font-size:15px;line-height:1.55;color:#B8AFA3;margin:0">« Si… alors… » sans code. La maison réagit toute seule, exactement comme vous voulez.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== MATÉRIEL ===================== -->
+  <section id="materiel" style="background:#F3EFE8;padding:clamp(80px,11vw,150px) clamp(20px,5vw,64px)">
+    <div class="fy-2col" style="max-width:1240px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:clamp(36px,5vw,80px);align-items:center">
+      <div style="position:relative">
+        <div style="position:absolute;inset:0;border-radius:32px;background:radial-gradient(55% 55% at 45% 40%,rgba(255,122,47,.4),transparent 70%);filter:blur(30px)"></div>
+        <div style="position:relative;border-radius:28px;overflow:hidden;box-shadow:0 50px 90px -40px rgba(74,45,20,.5);border:1px solid rgba(255,255,255,.6);animation:fUp 1s cubic-bezier(.16,1,.3,1) both;animation-timeline:view();animation-range:entry 0 cover 30%">
+          <img src="assets/foyer/foyer-materiel-detail.jpg" alt="Détail des molettes cranelées et de la recharge sans fil intégrée de la box Foyer" style="display:block;width:100%;height:auto">
+        </div>
+      </div>
+      <div>
+        <div style="font-size:13px;letter-spacing:.2em;font-weight:700;color:var(--accent);text-transform:uppercase;margin-bottom:18px">Conçue pour être vue</div>
+        <h2 style="font-size:clamp(32px,4.6vw,58px);line-height:1.04;letter-spacing:-.03em;font-weight:800;margin:0 0 32px;color:#1D1D1F">Un objet, pas une boîte dans un placard.</h2>
+        <div style="display:flex;flex-direction:column">
+          <div style="display:flex;gap:18px;padding:18px 0;border-top:1px solid #E1DAD0;animation:fUp .8s cubic-bezier(.16,1,.3,1) both;animation-timeline:view();animation-range:entry 0 cover 14%">
+            <div style="flex:none;width:34px;height:34px;border-radius:50%;background:#fff;border:1px solid #E1DAD0;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:var(--accent)">1</div>
+            <div>
+              <div style="font-size:17px;font-weight:700;letter-spacing:-.01em;margin-bottom:3px;color:#1D1D1F">Écran d'ambiance</div>
+              <div style="font-size:14.5px;line-height:1.5;color:#6E6A64">Heure, météo et scènes du moment, avec une lueur qui change au fil de la journée.</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:18px;padding:18px 0;border-top:1px solid #E1DAD0;animation:fUp .8s cubic-bezier(.16,1,.3,1) both;animation-timeline:view();animation-range:entry 0 cover 14%">
+            <div style="flex:none;width:34px;height:34px;border-radius:50%;background:#fff;border:1px solid #E1DAD0;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:var(--accent)">2</div>
+            <div>
+              <div style="font-size:17px;font-weight:700;letter-spacing:-.01em;margin-bottom:3px;color:#1D1D1F">Molettes analogiques</div>
+              <div style="font-size:14.5px;line-height:1.5;color:#6E6A64">Volume, luminosité, ambiances — un geste physique, sans sortir le téléphone.</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:18px;padding:18px 0;border-top:1px solid #E1DAD0;animation:fUp .8s cubic-bezier(.16,1,.3,1) both;animation-timeline:view();animation-range:entry 0 cover 14%">
+            <div style="flex:none;width:34px;height:34px;border-radius:50%;background:#fff;border:1px solid #E1DAD0;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:var(--accent)">3</div>
+            <div>
+              <div style="font-size:17px;font-weight:700;letter-spacing:-.01em;margin-bottom:3px;color:#1D1D1F">Cœur Raspberry Pi</div>
+              <div style="font-size:14.5px;line-height:1.5;color:#6E6A64">Un vrai ordinateur, ouvert et réparable. Home Assistant tourne dessus, chez vous.</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:18px;padding:18px 0;border-top:1px solid #E1DAD0;animation:fUp .8s cubic-bezier(.16,1,.3,1) both;animation-timeline:view();animation-range:entry 0 cover 14%">
+            <div style="flex:none;width:34px;height:34px;border-radius:50%;background:#fff;border:1px solid #E1DAD0;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:var(--accent)">4</div>
+            <div>
+              <div style="font-size:17px;font-weight:700;letter-spacing:-.01em;margin-bottom:3px;color:#1D1D1F">Tous les ports</div>
+              <div style="font-size:14.5px;line-height:1.5;color:#6E6A64">USB-C, HDMI, Ethernet, USB-A. Branchez, étendez, gardez la main sur votre matériel.</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:18px;padding:18px 0;border-top:1px solid #E1DAD0;animation:fUp .8s cubic-bezier(.16,1,.3,1) both;animation-timeline:view();animation-range:entry 0 cover 14%">
+            <div style="flex:none;width:34px;height:34px;border-radius:50%;background:#fff;border:1px solid #E1DAD0;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:var(--accent)">5</div>
+            <div>
+              <div style="font-size:17px;font-weight:700;letter-spacing:-.01em;margin-bottom:3px;color:#1D1D1F">Recharge sans fil</div>
+              <div style="font-size:14.5px;line-height:1.5;color:#6E6A64">Un socle intégré pour poser et recharger vos écouteurs. Aussi utile que beau.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== TARIFS ===================== -->
+  <section id="tarifs" style="background:#FBF9F6;padding:clamp(80px,11vw,150px) clamp(20px,5vw,64px)">
+    <div style="max-width:1240px;margin:0 auto">
+      <div style="text-align:center;max-width:34ch;margin:0 auto clamp(44px,5vw,64px)">
+        <div style="font-size:13px;letter-spacing:.2em;font-weight:700;color:var(--accent);text-transform:uppercase;margin-bottom:18px">Simple et transparent</div>
+        <h2 style="font-size:clamp(34px,5vw,64px);line-height:1.03;letter-spacing:-.03em;font-weight:800;margin:0;color:#1D1D1F">Vous payez le matériel et la pose. Le reste est en option.</h2>
+      </div>
+      <div class="fy-price" style="display:grid;grid-template-columns:repeat(3,1fr);gap:22px;align-items:stretch">
+
+        <div style="background:#fff;border:1px solid #EAE4DB;border-radius:26px;padding:38px 32px;display:flex;flex-direction:column">
+          <div style="font-size:14px;font-weight:700;color:#8A857E;margin-bottom:10px">La box Foyer</div>
+          <div style="font-size:20px;font-weight:700;margin-bottom:4px;color:#1D1D1F">Box + installation</div>
+          <div style="display:flex;align-items:baseline;gap:6px;margin:16px 0 20px"><span style="font-size:15px;color:#8A857E">à partir de</span><span style="font-size:46px;font-weight:800;letter-spacing:-.03em;color:#1D1D1F">499&nbsp;$</span></div>
+          <p style="font-size:14.5px;line-height:1.55;color:#6E6A64;margin:0 0 22px">Le matériel, la configuration Home Assistant et l'installation à domicile, prise en main comprise.</p>
+          <div style="display:flex;flex-direction:column;gap:12px;font-size:14.5px;color:#3a3733;margin-bottom:28px">
+            <div style="display:flex;gap:10px;align-items:flex-start"><span style="color:var(--accent);font-weight:800">✓</span>Raspberry Pi + boîtier Foyer</div>
+            <div style="display:flex;gap:10px;align-items:flex-start"><span style="color:var(--accent);font-weight:800">✓</span>Configuration Home Assistant complète</div>
+            <div style="display:flex;gap:10px;align-items:flex-start"><span style="color:var(--accent);font-weight:800">✓</span>Installation et câblage à domicile</div>
+            <div style="display:flex;gap:10px;align-items:flex-start"><span style="color:var(--accent);font-weight:800">✓</span>Prise en main avec vous</div>
+          </div>
+          <a href="#devis" style="margin-top:auto;text-align:center;padding:14px;border-radius:14px;background:#1D1D1F;color:#fff;font-weight:700;font-size:15px">Estimer mon projet</a>
+        </div>
+
+        <div style="background:linear-gradient(180deg,#1D1509,#241a0d);color:#F5EFE7;border-radius:26px;padding:38px 32px;display:flex;flex-direction:column;position:relative;box-shadow:0 40px 80px -30px rgba(74,45,20,.6);transform:translateY(-12px)">
+          <div style="position:absolute;top:22px;right:22px;font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;padding:5px 11px;border-radius:980px;background:var(--accent);color:#fff">Populaire</div>
+          <div style="font-size:14px;font-weight:700;color:#C9A67A;margin-bottom:10px">Objets connectés</div>
+          <div style="font-size:20px;font-weight:700;margin-bottom:4px">Sur mesure</div>
+          <div style="display:flex;align-items:baseline;gap:6px;margin:16px 0 20px"><span style="font-size:46px;font-weight:800;letter-spacing:-.03em">Devis</span></div>
+          <p style="font-size:14.5px;line-height:1.55;color:#B8AFA3;margin:0 0 22px">Ampoules, capteurs, volets, prises, caméras, thermostats… choisis, fournis et configurés selon votre maison.</p>
+          <div style="display:flex;flex-direction:column;gap:12px;font-size:14.5px;color:#E7DECF;margin-bottom:28px">
+            <div style="display:flex;gap:10px;align-items:flex-start"><span style="color:var(--accent);font-weight:800">✓</span>Sélection adaptée à votre logement</div>
+            <div style="display:flex;gap:10px;align-items:flex-start"><span style="color:var(--accent);font-weight:800">✓</span>Matériel fourni et posé</div>
+            <div style="display:flex;gap:10px;align-items:flex-start"><span style="color:var(--accent);font-weight:800">✓</span>Intégration testée pièce par pièce</div>
+            <div style="display:flex;gap:10px;align-items:flex-start"><span style="color:var(--accent);font-weight:800">✓</span>Garantie et suivi</div>
+          </div>
+          <a href="#devis" style="margin-top:auto;text-align:center;padding:14px;border-radius:14px;background:var(--accent);color:#fff;font-weight:700;font-size:15px">Composer mon pack</a>
+        </div>
+
+        <div style="background:#fff;border:1px solid #EAE4DB;border-radius:26px;padding:38px 32px;display:flex;flex-direction:column">
+          <div style="font-size:14px;font-weight:700;color:#8A857E;margin-bottom:10px">Sérénité</div>
+          <div style="font-size:20px;font-weight:700;margin-bottom:4px;color:#1D1D1F">Maintenance</div>
+          <div style="display:flex;align-items:baseline;gap:6px;margin:16px 0 20px"><span style="font-size:46px;font-weight:800;letter-spacing:-.03em;color:#1D1D1F">29&nbsp;$</span><span style="font-size:15px;color:#8A857E">/ mois</span></div>
+          <p style="font-size:14.5px;line-height:1.55;color:#6E6A64;margin:0 0 22px">Optionnel. Supervision, mises à jour, sauvegardes et interventions — pour ne plus jamais y penser.</p>
+          <div style="display:flex;flex-direction:column;gap:12px;font-size:14.5px;color:#3a3733;margin-bottom:28px">
+            <div style="display:flex;gap:10px;align-items:flex-start"><span style="color:var(--accent);font-weight:800">✓</span>Mises à jour et sauvegardes</div>
+            <div style="display:flex;gap:10px;align-items:flex-start"><span style="color:var(--accent);font-weight:800">✓</span>Supervision à distance (opt-in)</div>
+            <div style="display:flex;gap:10px;align-items:flex-start"><span style="color:var(--accent);font-weight:800">✓</span>Support prioritaire</div>
+            <div style="display:flex;gap:10px;align-items:flex-start"><span style="color:var(--accent);font-weight:800">✓</span>Interventions incluses</div>
+          </div>
+          <a href="#devis" style="margin-top:auto;text-align:center;padding:14px;border-radius:14px;background:#fff;border:1px solid #E3DED6;color:#1D1D1F;font-weight:700;font-size:15px">En savoir plus</a>
+        </div>
+      </div>
+      <p style="text-align:center;font-size:14px;color:#8A857E;margin-top:26px">Prix en dollars canadiens (CAD), taxes en sus. Sans abonnement obligatoire — la box fonctionne <strong style="color:#3a3733">100 % en local, à vie</strong>.</p>
+    </div>
+  </section>
+
+  <!-- ===================== DEVIS ===================== -->
+  <section id="devis" style="background:#0E0A07;color:#F5EFE7;padding:clamp(70px,10vw,130px) clamp(20px,5vw,64px)">
+    <div style="max-width:760px;margin:0 auto">
+      <div style="text-align:center;margin-bottom:42px">
+        <div style="font-size:13px;letter-spacing:.2em;font-weight:700;color:var(--accent);text-transform:uppercase;margin-bottom:16px">Dimensionnez votre installation</div>
+        <h2 style="font-size:clamp(32px,5vw,58px);line-height:1.03;letter-spacing:-.03em;font-weight:800;margin:0 0 12px">Recevez un devis, pas un dépliant.</h2>
+        <p style="font-size:16.5px;color:#B8AFA3;margin:0 auto;max-width:46ch">Quelques questions, une estimation immédiate, et nous vous recontactons sous 48 h.</p>
+      </div>
+
+      <div style="background:#fff;color:#1D1D1F;border-radius:28px;padding:clamp(26px,4vw,44px);box-shadow:0 50px 100px -40px rgba(0,0,0,.7)">
+
+        <div id="fy-progress-wrap" style="margin-bottom:30px">
+          <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:600;color:#8A857E;margin-bottom:10px"><span id="fy-step-label">Votre logement</span><span id="fy-step-count">Étape 1 sur 4</span></div>
+          <div style="height:6px;border-radius:999px;background:#EDE8E0;overflow:hidden"><div id="fy-progress-bar" style="height:100%;border-radius:999px;background:linear-gradient(90deg,#FF7A2F,#FF3D57);width:25%;transition:width .5s cubic-bezier(.16,1,.3,1)"></div></div>
+        </div>
+
+        <div id="fy-step-0" class="fy-step">
+          <h3 style="font-size:23px;font-weight:800;letter-spacing:-.02em;margin:0 0 6px">Parlez-nous de votre logement</h3>
+          <p style="font-size:15px;color:#6E6A64;margin:0 0 24px">Cela nous aide à estimer la couverture nécessaire.</p>
+          <div style="font-size:14px;font-weight:700;margin-bottom:12px">Type de logement</div>
+          <div id="fy-logement-opts" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:26px">
+            <button type="button" class="fy-chip" data-field="logement" data-val="Appartement">Appartement</button>
+            <button type="button" class="fy-chip" data-field="logement" data-val="Maison">Maison</button>
+            <button type="button" class="fy-chip" data-field="logement" data-val="Condo">Condo</button>
+            <button type="button" class="fy-chip" data-field="logement" data-val="Autre">Autre</button>
+          </div>
+          <div style="font-size:14px;font-weight:700;margin-bottom:12px">Surface approximative</div>
+          <div id="fy-surface-opts" style="display:flex;flex-wrap:wrap;gap:10px">
+            <button type="button" class="fy-chip" data-field="surface" data-val="small">≤ 800 pi²</button>
+            <button type="button" class="fy-chip" data-field="surface" data-val="medium">800 – 1 800 pi²</button>
+            <button type="button" class="fy-chip" data-field="surface" data-val="large">&gt; 1 800 pi²</button>
+          </div>
+        </div>
+
+        <div id="fy-step-1" class="fy-step" style="display:none">
+          <h3 style="font-size:23px;font-weight:800;letter-spacing:-.02em;margin:0 0 6px">Qu'aimeriez-vous piloter&nbsp;?</h3>
+          <p style="font-size:15px;color:#6E6A64;margin:0 0 24px">Sélectionnez tout ce qui vous intéresse — on affine ensemble ensuite.</p>
+          <div id="fy-control-chips" style="display:flex;flex-wrap:wrap;gap:10px">
+            <button type="button" class="fy-chip" data-k="eclairage"><span style="font-size:17px">💡</span> Éclairage</button>
+            <button type="button" class="fy-chip" data-k="chauffage"><span style="font-size:17px">🌡️</span> Chauffage</button>
+            <button type="button" class="fy-chip" data-k="volets"><span style="font-size:17px">🪟</span> Volets / stores</button>
+            <button type="button" class="fy-chip" data-k="securite"><span style="font-size:17px">🛡️</span> Sécurité / caméras</button>
+            <button type="button" class="fy-chip" data-k="prises"><span style="font-size:17px">🔌</span> Prises connectées</button>
+            <button type="button" class="fy-chip" data-k="multimedia"><span style="font-size:17px">🔊</span> Multimédia / audio</button>
+            <button type="button" class="fy-chip" data-k="detecteurs"><span style="font-size:17px">💧</span> Détecteurs (fumée, fuite)</button>
+            <button type="button" class="fy-chip" data-k="portail"><span style="font-size:17px">🚪</span> Portail / interphone</button>
+          </div>
+        </div>
+
+        <div id="fy-step-2" class="fy-step" style="display:none">
+          <h3 style="font-size:23px;font-weight:800;letter-spacing:-.02em;margin:0 0 6px">Où en êtes-vous&nbsp;?</h3>
+          <p style="font-size:15px;color:#6E6A64;margin:0 0 24px">Pour savoir si l'on part de zéro ou si l'on récupère l'existant.</p>
+          <div style="font-size:14px;font-weight:700;margin-bottom:12px">Avez-vous déjà des objets connectés&nbsp;?</div>
+          <div id="fy-existing-opts" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:26px">
+            <button type="button" class="fy-chip" data-field="existing" data-val="Non">Je pars de zéro</button>
+            <button type="button" class="fy-chip" data-field="existing" data-val="Un peu">Quelques objets</button>
+            <button type="button" class="fy-chip" data-field="existing" data-val="Beaucoup">Déjà bien équipé</button>
+          </div>
+          <div style="font-size:14px;font-weight:700;margin-bottom:12px">Quel accompagnement souhaitez-vous&nbsp;?</div>
+          <div id="fy-level-opts" style="display:flex;flex-direction:column;gap:10px">
+            <button type="button" class="fy-opt" data-field="level" data-val="box">La box seule<span class="fy-opt-desc">Je préfère installer et configurer moi-même.</span></button>
+            <button type="button" class="fy-opt" data-field="level" data-val="install">Box + installation<span class="fy-opt-desc">Vous posez et configurez tout chez moi.</span></button>
+            <button type="button" class="fy-opt" data-field="level" data-val="serenity">Installation + Sérénité<span class="fy-opt-desc">Installation, puis maintenance et support en continu.</span></button>
+          </div>
+        </div>
+
+        <div id="fy-step-3" class="fy-step" style="display:none">
+          <h3 style="font-size:23px;font-weight:800;letter-spacing:-.02em;margin:0 0 6px">Où vous envoyer votre devis&nbsp;?</h3>
+          <p style="font-size:15px;color:#6E6A64;margin:0 0 24px">Nous vous recontactons sous 48 h, sans engagement.</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+            <input id="fy-nom" class="fy-input" placeholder="Nom">
+            <input id="fy-cp" class="fy-input" placeholder="Code postal">
+          </div>
+          <input id="fy-email" class="fy-input" placeholder="Adresse courriel" style="width:100%;margin-bottom:14px">
+          <textarea id="fy-message" class="fy-input" placeholder="Un mot sur votre projet (facultatif)" rows="3" style="width:100%;resize:vertical"></textarea>
+        </div>
+
+        <div id="fy-step-done" style="display:none;text-align:center;animation:fIn .5s both">
+          <div style="width:64px;height:64px;border-radius:50%;margin:0 auto 20px;background:linear-gradient(135deg,#FF7A2F,#FF3D57);display:flex;align-items:center;justify-content:center;font-size:30px;color:#fff">✓</div>
+          <h3 style="font-size:26px;font-weight:800;letter-spacing:-.02em;margin:0 0 8px">C'est noté, <span id="fy-done-nom"></span>&nbsp;!</h3>
+          <p style="font-size:15.5px;color:#6E6A64;margin:0 auto 26px;max-width:44ch">Voici une première estimation indicative. Nous revenons vers vous sous 48 h avec un devis précis.</p>
+          <div style="background:#FBF6EF;border:1px solid #F0E6D6;border-radius:20px;padding:26px;margin-bottom:22px">
+            <div style="font-size:13px;font-weight:700;color:#8A857E;letter-spacing:.04em;text-transform:uppercase;margin-bottom:8px">Estimation indicative</div>
+            <div style="font-size:40px;font-weight:800;letter-spacing:-.03em;color:#1D1D1F"><span id="fy-est-low"></span> – <span id="fy-est-high"></span></div>
+            <div id="fy-est-note" style="font-size:13.5px;color:#8A857E;margin-top:6px"></div>
+          </div>
+          <div style="text-align:left;background:#F7F4EF;border-radius:16px;padding:20px 22px;font-size:14.5px;color:#3a3733">
+            <div style="font-weight:700;margin-bottom:10px;font-size:13px;letter-spacing:.03em;text-transform:uppercase;color:#8A857E">Votre projet</div>
+            <div id="fy-recap" style="display:flex;flex-direction:column;gap:7px"></div>
+          </div>
+          <button type="button" id="fy-reset" style="margin-top:24px;background:none;border:none;color:var(--accent);font-weight:700;font-size:15px;cursor:pointer">Recommencer</button>
+        </div>
+
+        <div id="fy-nav-buttons" style="display:flex;justify-content:space-between;align-items:center;margin-top:34px;gap:14px">
+          <button type="button" id="fy-prev" class="fy-btn-back" disabled>‹ Retour</button>
+          <button type="button" id="fy-next" class="fy-btn-next">Continuer ›</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== FAQ ===================== -->
+  <section id="faq" style="background:#FBF9F6;padding:clamp(80px,11vw,150px) clamp(20px,5vw,64px)">
+    <div style="max-width:900px;margin:0 auto">
+      <div style="text-align:center;margin-bottom:clamp(40px,5vw,60px)">
+        <div style="font-size:13px;letter-spacing:.2em;font-weight:700;color:var(--accent);text-transform:uppercase;margin-bottom:16px">On vous répond</div>
+        <h2 style="font-size:clamp(34px,5vw,64px);line-height:1.03;letter-spacing:-.03em;font-weight:800;margin:0;color:#1D1D1F">Foire aux questions</h2>
+      </div>
+      <div id="fy-faq-list" style="display:flex;flex-direction:column">
+        <div class="fy-faq-item" style="border-top:1px solid #E4DED4">
+          <button type="button" class="fy-faq-toggle" style="width:100%;display:flex;justify-content:space-between;align-items:center;gap:20px;padding:26px 0;background:none;border:none;cursor:pointer;text-align:left;font-size:clamp(17px,2vw,21px);font-weight:700;letter-spacing:-.01em;color:#1D1D1F">
+            Est-ce que ça fonctionne sans Internet ?
+            <span class="fy-faq-plus" style="flex:none;font-size:24px;font-weight:400;color:var(--accent);transition:transform .3s">+</span>
+          </button>
+          <div class="fy-faq-body"><p style="font-size:16px;line-height:1.6;color:#5B5750;margin:0;padding:0 0 26px;max-width:70ch">Oui. Foyer tourne en local, sur votre réseau domestique. Vos automatisations, scènes et capteurs continuent de fonctionner même en cas de coupure Internet — seul l'accès à distance nécessite une connexion.</p></div>
+        </div>
+        <div class="fy-faq-item" style="border-top:1px solid #E4DED4">
+          <button type="button" class="fy-faq-toggle" style="width:100%;display:flex;justify-content:space-between;align-items:center;gap:20px;padding:26px 0;background:none;border:none;cursor:pointer;text-align:left;font-size:clamp(17px,2vw,21px);font-weight:700;letter-spacing:-.01em;color:#1D1D1F">
+            Mes données sont-elles envoyées quelque part ?
+            <span class="fy-faq-plus" style="flex:none;font-size:24px;font-weight:400;color:var(--accent);transition:transform .3s">+</span>
+          </button>
+          <div class="fy-faq-body"><p style="font-size:16px;line-height:1.6;color:#5B5750;margin:0;padding:0 0 26px;max-width:70ch">Non. Aucune donnée n'est envoyée dans le cloud par défaut. Vos habitudes, vos images de caméra et vos capteurs restent chez vous. C'est le principe même de Foyer.</p></div>
+        </div>
+        <div class="fy-faq-item" style="border-top:1px solid #E4DED4">
+          <button type="button" class="fy-faq-toggle" style="width:100%;display:flex;justify-content:space-between;align-items:center;gap:20px;padding:26px 0;background:none;border:none;cursor:pointer;text-align:left;font-size:clamp(17px,2vw,21px);font-weight:700;letter-spacing:-.01em;color:#1D1D1F">
+            Est-ce compatible avec mes appareils actuels ?
+            <span class="fy-faq-plus" style="flex:none;font-size:24px;font-weight:400;color:var(--accent);transition:transform .3s">+</span>
+          </button>
+          <div class="fy-faq-body"><p style="font-size:16px;line-height:1.6;color:#5B5750;margin:0;padding:0 0 26px;max-width:70ch">Très probablement. Foyer prend en charge Matter, Zigbee, Z-Wave, Thread et Wi-Fi, ce qui couvre plus de 2 000 appareils : Philips Hue, Sonos, Somfy, Netatmo, IKEA, Shelly, et bien d'autres.</p></div>
+        </div>
+        <div class="fy-faq-item" style="border-top:1px solid #E4DED4">
+          <button type="button" class="fy-faq-toggle" style="width:100%;display:flex;justify-content:space-between;align-items:center;gap:20px;padding:26px 0;background:none;border:none;cursor:pointer;text-align:left;font-size:clamp(17px,2vw,21px);font-weight:700;letter-spacing:-.01em;color:#1D1D1F">
+            Faut-il un abonnement ?
+            <span class="fy-faq-plus" style="flex:none;font-size:24px;font-weight:400;color:var(--accent);transition:transform .3s">+</span>
+          </button>
+          <div class="fy-faq-body"><p style="font-size:16px;line-height:1.6;color:#5B5750;margin:0;padding:0 0 26px;max-width:70ch">Non. La box vous appartient et fonctionne à vie sans frais mensuels. L'offre Sérénité (maintenance) est entièrement optionnelle, à 29 $ CA / mois.</p></div>
+        </div>
+        <div class="fy-faq-item" style="border-top:1px solid #E4DED4">
+          <button type="button" class="fy-faq-toggle" style="width:100%;display:flex;justify-content:space-between;align-items:center;gap:20px;padding:26px 0;background:none;border:none;cursor:pointer;text-align:left;font-size:clamp(17px,2vw,21px);font-weight:700;letter-spacing:-.01em;color:#1D1D1F">
+            Combien de temps prend l'installation ?
+            <span class="fy-faq-plus" style="flex:none;font-size:24px;font-weight:400;color:var(--accent);transition:transform .3s">+</span>
+          </button>
+          <div class="fy-faq-body"><p style="font-size:16px;line-height:1.6;color:#5B5750;margin:0;padding:0 0 26px;max-width:70ch">En général moins d'une journée. On vient chez vous, on installe la box, on configure vos appareils et on vous forme à l'utilisation avant de partir.</p></div>
+        </div>
+        <div class="fy-faq-item" style="border-top:1px solid #E4DED4">
+          <button type="button" class="fy-faq-toggle" style="width:100%;display:flex;justify-content:space-between;align-items:center;gap:20px;padding:26px 0;background:none;border:none;cursor:pointer;text-align:left;font-size:clamp(17px,2vw,21px);font-weight:700;letter-spacing:-.01em;color:#1D1D1F">
+            Et si je déménage ?
+            <span class="fy-faq-plus" style="flex:none;font-size:24px;font-weight:400;color:var(--accent);transition:transform .3s">+</span>
+          </button>
+          <div class="fy-faq-body"><p style="font-size:16px;line-height:1.6;color:#5B5750;margin:0;padding:0 0 26px;max-width:70ch">La box vous suit. Il suffit de la rebrancher chez vous ; nous pouvons vous accompagner pour réintégrer vos nouveaux équipements si besoin.</p></div>
+        </div>
+        <div class="fy-faq-item" style="border-top:1px solid #E4DED4">
+          <button type="button" class="fy-faq-toggle" style="width:100%;display:flex;justify-content:space-between;align-items:center;gap:20px;padding:26px 0;background:none;border:none;cursor:pointer;text-align:left;font-size:clamp(17px,2vw,21px);font-weight:700;letter-spacing:-.01em;color:#1D1D1F">
+            Puis-je étendre mon installation plus tard ?
+            <span class="fy-faq-plus" style="flex:none;font-size:24px;font-weight:400;color:var(--accent);transition:transform .3s">+</span>
+          </button>
+          <div class="fy-faq-body"><p style="font-size:16px;line-height:1.6;color:#5B5750;margin:0;padding:0 0 26px;max-width:70ch">Oui, quand vous voulez. On ajoute des ampoules, capteurs, caméras ou volets au fil du temps — la box est pensée pour grandir avec votre maison.</p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== NEWSLETTER ===================== -->
+  <section style="background:#0E0A07;padding:clamp(70px,10vw,120px) clamp(20px,5vw,64px)">
+    <div style="max-width:1240px;margin:0 auto;position:relative;overflow:hidden;border-radius:36px;padding:clamp(44px,6vw,84px);background:linear-gradient(120deg,#FFC24B,#FF7A2F 48%,#FF3D57)">
+      <div style="position:absolute;right:-10%;top:-40%;width:60%;height:180%;background:radial-gradient(circle,rgba(255,255,255,.35),transparent 60%)"></div>
+      <div style="position:relative;max-width:560px">
+        <h2 style="font-size:clamp(30px,4.6vw,56px);line-height:1.02;letter-spacing:-.03em;font-weight:800;margin:0 0 14px;color:#fff">Foyer arrive bientôt près de chez vous.</h2>
+        <p style="font-size:17px;line-height:1.5;color:rgba(255,255,255,.92);margin:0 0 28px">Rejoignez la liste et soyez les premiers informés des zones couvertes, des précommandes et des nouveautés.</p>
+        <div id="fy-news-done" style="display:none;align-items:center;gap:10px;background:#fff;color:#1D1D1F;padding:16px 26px;border-radius:14px;font-weight:700;font-size:16px">✓ Vous êtes inscrit·e. À très vite&nbsp;!</div>
+        <div id="fy-news-open" style="display:flex;gap:12px;flex-wrap:wrap;max-width:480px">
+          <input id="fy-news-input" placeholder="votre@courriel.ca" style="flex:1;min-width:220px;padding:16px 18px;border-radius:14px;border:none;font-size:16px;color:#1D1D1F;background:#fff;outline:none">
+          <button type="button" id="fy-news-submit" style="padding:16px 28px;border-radius:14px;border:none;background:#1D1D1F;color:#fff;font-weight:700;font-size:16px;cursor:pointer">Me prévenir</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== FOOTER ===================== -->
+  <footer style="background:#0E0A07;color:#C4BAAD;padding:clamp(50px,6vw,80px) clamp(20px,5vw,64px)">
+    <div style="max-width:1240px;margin:0 auto;display:flex;flex-wrap:wrap;justify-content:space-between;gap:32px">
+      <div style="max-width:280px">
+        <div style="display:flex;align-items:center;gap:11px;font-weight:800;font-size:19px;letter-spacing:-.02em;margin-bottom:14px;color:#fff"><span style="width:24px;height:24px;border-radius:7px;background:linear-gradient(135deg,#FFC24B,#FF7A2F 45%,#FF3D57);display:inline-block"></span>Foyer</div>
+        <p style="font-size:14px;color:#8A7F70;line-height:1.55;margin:0">La maison intelligente, en local. Box domotique conçue, installée et entretenue près de chez vous. Fièrement canadienne.</p>
+      </div>
+      <div style="display:flex;gap:clamp(32px,6vw,80px);flex-wrap:wrap">
+        <div><div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:14px">Produit</div><div style="display:flex;flex-direction:column;gap:10px;font-size:14px"><a href="#capacites" style="color:#8A7F70">Capacités</a><a href="#materiel" style="color:#8A7F70">Le matériel</a><a href="#tarifs" style="color:#8A7F70">Tarifs</a></div></div>
+        <div><div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:14px">Entreprise</div><div style="display:flex;flex-direction:column;gap:10px;font-size:14px"><a href="#devis" style="color:#8A7F70">Demander un devis</a><a href="#" style="color:#8A7F70">Zones couvertes</a><a href="#" style="color:#8A7F70">Contact</a></div></div>
+        <div><div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:14px">Confiance</div><div style="display:flex;flex-direction:column;gap:10px;font-size:14px"><a href="#" style="color:#8A7F70">Vie privée</a><a href="#" style="color:#8A7F70">Open-source</a><a href="#" style="color:#8A7F70">Mentions légales</a></div></div>
+      </div>
+    </div>
+    <div style="max-width:1240px;margin:38px auto 0;padding-top:22px;border-top:1px solid rgba(255,255,255,.08);font-size:13px;color:#6E6357">© 2026 Foyer. Fait avec soin, en local. Prix en CAD.</div>
+  </footer>
+
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  // ---------- Loader percentage ----------
+  var pct = 0;
+  var pctEl = document.getElementById('fy-loader-pct');
+  var loaderTimer = setInterval(function(){
+    pct += Math.random() * 16 + 6;
+    if (pct >= 100) { pct = 100; clearInterval(loaderTimer); }
+    pctEl.textContent = Math.round(pct) + '%';
+  }, 90);
+
+  // ---------- Scroll-driven visuals ----------
+  var prog = document.getElementById('fy-prog');
+  var glow = document.getElementById('fy-hero-glow');
+  var nav = document.getElementById('fy-nav');
+  var navLinks = document.getElementById('fy-nav-links');
+  var navBrand = document.getElementById('fy-nav-brand');
+  var navCta = document.getElementById('fy-nav-cta');
+  var pin = document.getElementById('capacites');
+  var track = document.getElementById('fy-track');
+  var raf = null;
+
+  function updateScroll(){
+    raf = null;
+    var y = window.scrollY, vh = window.innerHeight, vw = window.innerWidth;
+    var doc = document.documentElement;
+
+    if (prog) prog.style.width = Math.min(100, (y / (doc.scrollHeight - vh || 1)) * 100) + '%';
+    if (glow) glow.style.transform = 'translateY(' + (y * 0.18) + 'px)';
+
+    if (nav){
+      var solid = y > vh * 0.7;
+      nav.style.background = solid ? 'rgba(251,249,246,.82)' : 'transparent';
+      nav.style.backdropFilter = solid ? 'saturate(180%) blur(18px)' : 'none';
+      nav.style.webkitBackdropFilter = solid ? 'saturate(180%) blur(18px)' : 'none';
+      nav.style.borderBottomColor = solid ? 'rgba(0,0,0,.07)' : 'transparent';
+      nav.style.padding = solid ? '12px clamp(20px,5vw,64px)' : '16px clamp(20px,5vw,64px)';
+      var inv = solid ? 'normal' : 'difference';
+      var col = solid ? '#1D1D1F' : '#fff';
+      if (navLinks){ navLinks.style.mixBlendMode = inv; navLinks.style.color = col; }
+      if (navBrand){ navBrand.style.mixBlendMode = inv; navBrand.style.color = col; }
+      if (navCta){ navCta.style.background = solid ? '#1D1D1F' : '#fff'; navCta.style.color = solid ? '#fff' : '#1D1D1F'; }
+    }
+
+    if (pin && track){
+      var r = pin.getBoundingClientRect();
+      var total = pin.offsetHeight - vh;
+      var progress = Math.min(1, Math.max(0, (-r.top) / (total || 1)));
+      var max = Math.max(0, track.scrollWidth - vw);
+      track.style.transform = 'translate3d(' + (-progress * max) + 'px,0,0)';
+    }
+  }
+
+  function onScroll(){ if (raf) return; raf = requestAnimationFrame(updateScroll); }
+  window.addEventListener('scroll', onScroll, { passive: true });
+
+  function setPinHeight(){
+    if (!pin || !track) return;
+    var h = Math.max(window.innerHeight, track.scrollWidth * 0.62 + window.innerHeight * 0.4);
+    pin.style.height = h + 'px';
+  }
+  function onResize(){ setPinHeight(); updateScroll(); }
+  window.addEventListener('resize', onResize);
+
+  setPinHeight();
+  requestAnimationFrame(updateScroll);
+  setTimeout(function(){ setPinHeight(); updateScroll(); }, 400);
+
+  // ---------- FAQ accordion ----------
+  var faqItems = document.querySelectorAll('.fy-faq-item');
+  faqItems.forEach(function(item){
+    var toggle = item.querySelector('.fy-faq-toggle');
+    toggle.addEventListener('click', function(){
+      var wasOpen = item.classList.contains('is-open');
+      faqItems.forEach(function(i){ i.classList.remove('is-open'); });
+      if (!wasOpen) item.classList.add('is-open');
+    });
+  });
+
+  // ---------- Newsletter ----------
+  var newsInput = document.getElementById('fy-news-input');
+  var newsSubmit = document.getElementById('fy-news-submit');
+  var newsOpen = document.getElementById('fy-news-open');
+  var newsDone = document.getElementById('fy-news-done');
+  newsSubmit.addEventListener('click', function(){
+    if (newsInput.value.indexOf('@') !== -1) {
+      newsOpen.style.display = 'none';
+      newsDone.style.display = 'flex';
+    }
+  });
+
+  // ---------- Devis multi-step quote form ----------
+  var controlDefs = [
+    { k:'eclairage', label:'Éclairage', low:90, high:320 },
+    { k:'chauffage', label:'Chauffage', low:130, high:400 },
+    { k:'volets', label:'Volets / stores', low:220, high:760 },
+    { k:'securite', label:'Sécurité / caméras', low:180, high:680 },
+    { k:'prises', label:'Prises connectées', low:60, high:220 },
+    { k:'multimedia', label:'Multimédia / audio', low:180, high:620 },
+    { k:'detecteurs', label:'Détecteurs (fumée, fuite)', low:75, high:250 },
+    { k:'portail', label:'Portail / interphone', low:260, high:640 },
+  ];
+  var surfaceLabels = { small:'≤ 800 pi²', medium:'800 – 1 800 pi²', large:'> 1 800 pi²' };
+  var levelLabels = { box:'La box seule', install:'Box + installation', serenity:'Installation + Sérénité' };
+  var stepLabels = ['Votre logement','Ce que vous pilotez','Votre situation','Vos coordonnées'];
+
+  var state = {
+    step: 0,
+    logement: '', surface: '',
+    controls: {}, existing: '', level: '',
+    nom: '', email: '', cp: '', message: '',
+    submitted: false,
+  };
+
+  var stepEls = [
+    document.getElementById('fy-step-0'),
+    document.getElementById('fy-step-1'),
+    document.getElementById('fy-step-2'),
+    document.getElementById('fy-step-3'),
+  ];
+  var stepDone = document.getElementById('fy-step-done');
+  var progressWrap = document.getElementById('fy-progress-wrap');
+  var navButtons = document.getElementById('fy-nav-buttons');
+  var stepLabelEl = document.getElementById('fy-step-label');
+  var stepCountEl = document.getElementById('fy-step-count');
+  var progressBar = document.getElementById('fy-progress-bar');
+  var prevBtn = document.getElementById('fy-prev');
+  var nextBtn = document.getElementById('fy-next');
+
+  document.querySelectorAll('#fy-logement-opts .fy-chip, #fy-surface-opts .fy-chip, #fy-existing-opts .fy-chip').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var field = btn.dataset.field, val = btn.dataset.val;
+      state[field] = val;
+      document.querySelectorAll('[data-field="' + field + '"]').forEach(function(b){
+        b.classList.toggle('is-selected', b === btn);
+      });
+    });
+  });
+
+  document.querySelectorAll('#fy-level-opts .fy-opt').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      state.level = btn.dataset.val;
+      document.querySelectorAll('#fy-level-opts .fy-opt').forEach(function(b){
+        b.classList.toggle('is-selected', b === btn);
+      });
+    });
+  });
+
+  document.querySelectorAll('#fy-control-chips .fy-chip').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var k = btn.dataset.k;
+      state.controls[k] = !state.controls[k];
+      btn.classList.toggle('is-selected', !!state.controls[k]);
+    });
+  });
+
+  var nomInput = document.getElementById('fy-nom');
+  var emailInput = document.getElementById('fy-email');
+  var cpInput = document.getElementById('fy-cp');
+  var messageInput = document.getElementById('fy-message');
+  nomInput.addEventListener('input', function(){ state.nom = nomInput.value; updateNextValidity(); });
+  emailInput.addEventListener('input', function(){ state.email = emailInput.value; updateNextValidity(); });
+  cpInput.addEventListener('input', function(){ state.cp = cpInput.value; });
+  messageInput.addEventListener('input', function(){ state.message = messageInput.value; });
+
+  function fmt(n){ return new Intl.NumberFormat('fr-CA').format(Math.round(n / 10) * 10) + ' $'; }
+
+  function estimate(){
+    var base = state.level === 'box' ? 549 : 690;
+    var factor = state.surface === 'large' ? 1.9 : state.surface === 'medium' ? 1.4 : 1;
+    var low = 0, high = 0;
+    controlDefs.forEach(function(d){ if (state.controls[d.k]) { low += d.low; high += d.high; } });
+    var ex = state.existing === 'Beaucoup' ? 0.65 : state.existing === 'Un peu' ? 0.85 : 1;
+    return { low: base + low * factor * ex, high: base + high * factor * ex };
+  }
+
+  function updateNextValidity(){
+    if (state.step !== 3) { nextBtn.disabled = false; return; }
+    nextBtn.disabled = !(state.nom.trim() && state.email.indexOf('@') !== -1);
+  }
+
+  function renderStep(){
+    stepEls.forEach(function(el, i){ el.style.display = (i === state.step) ? 'block' : 'none'; });
+    stepLabelEl.textContent = stepLabels[state.step];
+    stepCountEl.textContent = 'Étape ' + (state.step + 1) + ' sur 4';
+    progressBar.style.width = ((state.step + 1) / 4 * 100) + '%';
+    prevBtn.disabled = state.step === 0;
+    nextBtn.textContent = state.step < 3 ? 'Continuer ›' : 'Recevoir mon devis';
+    updateNextValidity();
+  }
+
+  function submitQuote(){
+    var est = estimate();
+    document.getElementById('fy-done-nom').textContent = state.nom;
+    document.getElementById('fy-est-low').textContent = fmt(est.low);
+    document.getElementById('fy-est-high').textContent = fmt(est.high);
+    document.getElementById('fy-est-note').textContent = state.level === 'serenity'
+      ? 'Matériel + installation. Sérénité en option à 29 $/mois.'
+      : (state.level === 'box' ? 'Matériel seul, hors installation.' : 'Matériel + installation à domicile.');
+
+    var chosen = controlDefs.filter(function(d){ return state.controls[d.k]; }).map(function(d){ return d.label; });
+    var recap = [
+      { k:'Logement', v:(state.logement || '—') + (state.surface ? ' · ' + surfaceLabels[state.surface] : '') },
+      { k:'À piloter', v: chosen.length ? chosen.join(', ') : '—' },
+      { k:'Accompagnement', v: levelLabels[state.level] || '—' },
+    ];
+    var recapEl = document.getElementById('fy-recap');
+    recapEl.innerHTML = '';
+    recap.forEach(function(r){
+      var row = document.createElement('div');
+      row.style.cssText = 'display:flex;justify-content:space-between;gap:16px';
+      row.innerHTML = '<span style="color:#8A857E">' + r.k + '</span><span style="font-weight:600;text-align:right"></span>';
+      row.lastElementChild.textContent = r.v;
+      recapEl.appendChild(row);
+    });
+
+    progressWrap.style.display = 'none';
+    stepEls.forEach(function(el){ el.style.display = 'none'; });
+    navButtons.style.display = 'none';
+    stepDone.style.display = 'block';
+  }
+
+  nextBtn.addEventListener('click', function(){
+    if (state.step < 3) { state.step++; renderStep(); return; }
+    if (state.nom.trim() && state.email.indexOf('@') !== -1) { state.submitted = true; submitQuote(); }
+  });
+  prevBtn.addEventListener('click', function(){
+    if (state.step > 0) { state.step--; renderStep(); }
+  });
+  document.getElementById('fy-reset').addEventListener('click', function(){
+    state = { step: 0, logement:'', surface:'', controls:{}, existing:'', level:'', nom:'', email:'', cp:'', message:'', submitted:false };
+    document.querySelectorAll('.fy-chip.is-selected, .fy-opt.is-selected').forEach(function(b){ b.classList.remove('is-selected'); });
+    nomInput.value = ''; emailInput.value = ''; cpInput.value = ''; messageInput.value = '';
+    progressWrap.style.display = 'block';
+    navButtons.style.display = 'flex';
+    stepDone.style.display = 'none';
+    renderStep();
+  });
+
+  renderStep();
+})();
+</script>
+</body>
+</html>
